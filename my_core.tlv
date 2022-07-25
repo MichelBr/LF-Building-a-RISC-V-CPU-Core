@@ -47,11 +47,22 @@
                        $pc + 1;
    $pc[31:0] = >>1$next_pc;
    
-   // addr is byte offset
+   // addr is byte offset - do all in 1 clock cycle
    $addr_byte_offset[31:0] = $pc * 4;
    
    `READONLY_MEM($addr_byte_offset, $$instr[31:0])
    
+   // determine instruction type
+   $is_i_instr = $instr[6:2] ==? 5'b0000x ||
+                 $instr[6:2] ==? 5'b001x0 ||
+                 $instr[6:2] ==? 5'b11001;
+   $is_u_instr = $instr[6:2] ==? 5'b0x101;
+   $is_s_instr = $instr[6:2] ==? 5'b0100x;
+   $is_r_instr = $instr[6:2] ==? 5'b01011 ||
+                 $instr[6:2] ==? 5'b011x0 ||
+                 $instr[6:2] ==? 5'b10100;
+   $is_j_instr = $instr[6:2] ==? 5'b11011;
+   $is_b_instr = $instr[6:2] ==? 5'b11000;
    
    // Assert these to end simulation (before Makerchip cycle limit).
    *passed = 1'b0;
