@@ -47,7 +47,10 @@
                        $pc + 1;
    $pc[31:0] = >>1$next_pc;
    
+   // addr is byte offset
+   $addr_byte_offset[31:0] = $pc * 4;
    
+   `READONLY_MEM($addr_byte_offset, $$instr[31:0])
    
    
    // Assert these to end simulation (before Makerchip cycle limit).
