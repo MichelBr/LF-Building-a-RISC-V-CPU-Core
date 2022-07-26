@@ -43,14 +43,12 @@
    
    $reset = *reset;
    
+   // addr is byte offset (32 bit instruction: 4 bytes) - do all in 1 clock cycle
    $next_pc[31:0] = $reset ? 0 : 
-                       $pc + 1;
+                       $pc + 4;
    $pc[31:0] = >>1$next_pc;
    
-   // addr is byte offset - do all in 1 clock cycle
-   $addr_byte_offset[31:0] = $pc * 4;
-   
-   `READONLY_MEM($addr_byte_offset, $$instr[31:0])
+   `READONLY_MEM($pc, $$instr[31:0])
    
    // determine instruction type
    $is_i_instr = $instr[6:2] ==? 5'b0000x ||
@@ -64,6 +62,38 @@
    $is_j_instr = $instr[6:2] ==? 5'b11011;
    $is_b_instr = $instr[6:2] ==? 5'b11000;
    
+   // extract instruction parameters
+   //register input indices
+   $opcode[6:0] = $instr[6:0];
+   $rs1[4:0] = $instr[19:15];
+   $rs2[4:0] = $instr[24:20];
+   //register result index
+   $rd[4:0] = $instr[11:7];
+   //function codes - 3 and 7 bits
+   $funct3[2:0] = $instr[14:12];
+   $funct7[6:0] = $instr[31:25];
+   
+   //which parameter are relevant for the current instruction/opcode?
+   $rs1_valid = $is_r_instr || $is_i_instr || $is_s_instr ||
+                $is_b_instr;
+   $rs2_valid = $is_r_instr || $is_s_instr || $is_b_instr;
+   $rd_valid = $is_r_instr || $is_i_instr || $is_u_instr ||
+               $is_j_instr;
+   $funct3_valid = $is_r_instr || $is_i_instr || $is_s_instr ||
+                   $is_b_instr;
+   $funct7_valid = $is_r_instr;
+   $imm_valid = ! $is_r_instr;
+   
+   // remove log clutter
+   `BOGUS_USE($rs1 $rs1_valid $rs2 $rs2_valid $rd $rd_valid $funct3 $funct3_valid $funct7 $funct7_valid $imm_valid $opcode)
+   
+   $imm[31:0] = $is_i_instr ? {{21{$instr[31]}},  $instr[30:20]} :
+                $is_s_instr ? {{21{$instr[31]}}, $instr[30:25], $instr[11:8], $instr[7]} :
+                $is_b_instr ? {{20{$instr[31]}}, $instr[7], $instr[30:25], $instr[11:8], $instr[7]} :
+                $is_u_instr ? {$instr[31], $instr[30:20], $instr[19:12], 12'b0} :
+                $is_j_instr ? {{12{$instr[31]}}, $instr[19:12], $instr[20], $instr[30:25], $instr[24:21], 1'b0} :
+                32'b0;  // Default 
+                              
    // Assert these to end simulation (before Makerchip cycle limit).
    *passed = 1'b0;
    *failed = *cyc_cnt > M4_MAX_CYC;
