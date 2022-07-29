@@ -142,7 +142,8 @@
               $is_bge $is_bltu $is_bgeu $is_addi $is_add)
    
    // Assert these to end simulation (before Makerchip cycle limit).
-   *passed = 1'b0;
+   // assert register 30 becomes 1 - test case (next_pc==pc stops the loop)
+   m4+tb()
    *failed = *cyc_cnt > M4_MAX_CYC;
    
    m4+rf(32, 32, $reset, $wr_en, $wr_index, $wr_data, $rd1_en, $rd1_index, $src1_value, $rd2_en, $rd2_index, $src2_value)
