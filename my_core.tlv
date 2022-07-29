@@ -113,7 +113,7 @@
    // write - data depends on instruction
    $wr_en = $is_r_instr || $is_i_instr || $is_u_instr || $is_j_instr;
    $wr_index[4:0] = $rd;
-   $wr_data[31:0] = 32'b0;
+   $wr_data[31:0] = $result;
    
    // implement alu
    $result[31:0] = $is_addi ? $src1_value + $imm :
