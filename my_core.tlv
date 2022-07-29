@@ -46,7 +46,9 @@
    
    // addr is byte offset (32 bit instruction: 4 bytes) - do all in 1 clock cycle
    $next_pc[31:0] = $reset ? 0 : 
-                       $pc + 4;
+                    $taken_br ? $br_tgt_pc :
+                    $pc + 4;
+                    
    $pc[31:0] = >>1$next_pc;
    
    `READONLY_MEM($pc, $$instr[31:0])
@@ -87,7 +89,7 @@
    
    $imm[31:0] = $is_i_instr ? {{21{$instr[31]}},  $instr[30:20]} :
                 $is_s_instr ? {{21{$instr[31]}}, $instr[30:25], $instr[11:8], $instr[7]} :
-                $is_b_instr ? {{20{$instr[31]}}, $instr[7], $instr[30:25], $instr[11:8], $instr[7]} :
+                $is_b_instr ? {{20{$instr[31]}}, $instr[7], $instr[30:25], $instr[11:8], 1'b0} :
                 $is_u_instr ? {$instr[31], $instr[30:20], $instr[19:12], 12'b0} :
                 $is_j_instr ? {{12{$instr[31]}}, $instr[19:12], $instr[20], $instr[30:25], $instr[24:21], 1'b0} :
                 32'b0;  // Default 
@@ -121,6 +123,18 @@
    $result[31:0] = $is_addi ? $src1_value + $imm :
                    $is_add ? $src1_value + $src2_value :
                    32'b0; // Default
+   
+   // implement conditional branch instructions
+   // should branch?
+   $taken_br = $is_beq ? $src1_value == $src2_value :
+               $is_bne ? $src1_value != $src2_value :
+               $is_blt ? ($src1_value < $src2_value) ^ ($src1_value[31] != $src2_value[31]) :
+               $is_bge ? ($src1_value >= $src2_value) ^ ($src1_value[31] != $src2_value[31]) :
+               $is_bltu ? $src1_value < $src2_value :
+               $is_bgeu ? $src1_value >= $src2_value : 
+               0;
+    // target pc is relative (imm) to current pc 
+   $br_tgt_pc[31:0] = $pc + $imm;
    
    // remove log clutter
    `BOGUS_USE($rs1 $rs1_valid $rs2 $rs2_valid $rd $rd_valid $funct3 $funct3_valid 
