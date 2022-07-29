@@ -104,6 +104,17 @@
    $is_addi = $dec_bits ==? 11'bx_000_0010011;
    $is_add =  $dec_bits ==? 11'b0_000_0110011;
    
+   // memory register read/write
+   // read
+   $rd1_index[4:0] = $rs1;
+   $rd1_en = $is_r_instr || $is_i_instr || $is_s_instr || $is_b_instr;
+   $rd2_index[4:0] = $rs2;
+   $rd2_en = $is_r_instr || $is_s_instr || $is_b_instr;
+   // write - data depends on instruction
+   $wr_en = $is_r_instr || $is_i_instr || $is_u_instr || $is_j_instr;
+   $wr_index[4:0] = $rd;
+   $wr_data[31:0] = 32'b0;
+   
    // remove log clutter
    `BOGUS_USE($rs1 $rs1_valid $rs2 $rs2_valid $rd $rd_valid $funct3 $funct3_valid 
               $funct7 $funct7_valid $imm_valid $opcode $imm $is_beq $is_bne $is_blt
@@ -113,7 +124,7 @@
    *passed = 1'b0;
    *failed = *cyc_cnt > M4_MAX_CYC;
    
-   //m4+rf(32, 32, $reset, $wr_en, $wr_index[4:0], $wr_data[31:0], $rd1_en, $rd1_index[4:0], $rd1_data, $rd2_en, $rd2_index[4:0], $rd2_data)
+   m4+rf(32, 32, $reset, $wr_en, $wr_index, $wr_data, $rd1_en, $rd1_index, $src1_value, $rd2_en, $rd2_index, $src2_value)
    //m4+dmem(32, 32, $reset, $addr[4:0], $wr_en, $wr_data[31:0], $rd_en, $rd_data)
    m4+cpu_viz()
 \SV
