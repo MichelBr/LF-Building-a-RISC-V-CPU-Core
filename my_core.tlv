@@ -115,6 +115,11 @@
    $wr_index[4:0] = $rd;
    $wr_data[31:0] = 32'b0;
    
+   // implement alu
+   $result[31:0] = $is_addi ? $src1_value + $imm :
+                   $is_add ? $src1_value + $src2_value :
+                   32'b0; // Default
+   
    // remove log clutter
    `BOGUS_USE($rs1 $rs1_valid $rs2 $rs2_valid $rd $rd_valid $funct3 $funct3_valid 
               $funct7 $funct7_valid $imm_valid $opcode $imm $is_beq $is_bne $is_blt
