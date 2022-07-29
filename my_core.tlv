@@ -27,6 +27,7 @@
    m4_asm(ADD, x14, x13, x14)           // Incremental summation
    m4_asm(ADDI, x13, x13, 1)            // Increment loop count by 1
    m4_asm(BLT, x13, x12, 1111111111000) // If a3 is less than a2, branch to label named <loop>
+	m4_asm(ADDI, x0, x0, 1) // write non-zero to x0, which isn't allowed - testcase: should be denied
    // Test result value in x14, and set x31 to reflect pass/fail.
    m4_asm(ADDI, x30, x14, 111111010100) // Subtract expected value of 44 to set x30 to 1 if and only iff the result is 45 (1 + 2 + ... + 9).
    m4_asm(BGE, x0, x0, 0) // Done. Jump to itself (infinite loop). (Up to 20-bit signed immediate plus implicit 0 bit (unlike JALR) provides byte address; last immediate bit should also be 0)
@@ -111,7 +112,8 @@
    $rd2_index[4:0] = $rs2;
    $rd2_en = $is_r_instr || $is_s_instr || $is_b_instr;
    // write - data depends on instruction
-   $wr_en = $is_r_instr || $is_i_instr || $is_u_instr || $is_j_instr;
+   // register index 0 may never be written to (always init value of zero)
+   $wr_en = ($is_r_instr || $is_i_instr || $is_u_instr || $is_j_instr) && $wr_index != 5'b0;
    $wr_index[4:0] = $rd;
    $wr_data[31:0] = $result;
    
