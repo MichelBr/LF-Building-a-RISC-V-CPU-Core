@@ -104,20 +104,33 @@
    $is_sra =   $dec_bits ==? 11'b1_101_0110011;
    $is_srai =  $dec_bits ==? 11'b1_101_0010011;
    
-   // load-store operations simplified to load or store for now
+   // load-store operations with limitation of naturally aligned (word) addresses (addr %4==0)
    $is_load =  $dec_bits ==? 11'bx_xxx_0000011; // load (to memory)
    
-   // memory register read/write
+   // The address computation, rs1 + imm, is the same computation performed by ADDI. 
+   // Since load/store instructions do not otherwise require the ALU, we will utilize the ALU for this computation.
+   // load (i-instruction): from memory  into destination register
+   // $mem_addr = $rs1 + $imm
+   // store (sw, sh, sb): operand rs2 ($src_value2) into memory address
+   // $mem_addr = $rs1 + $imm
+   $mem_addr_temp[31:0] = $result >> 2; // byte address, memory indexed by 32 bit words
+   $mem_addr[4:0] = $mem_addr_temp[4:0];
+   
+   $mem_wr_en = $is_s_instr;
+   $mem_wr_data[31:0] = $src2_value;
+   $mem_rd_en = $is_load;
+   
+   // memory register read/write. update parameters depending on situation
    // read
    $rd1_index[4:0] = $rs1;
-   $rd1_en = $is_r_instr || $is_i_instr || $is_s_instr || $is_b_instr;
+   $rd1_en = $is_r_instr || $is_i_instr || $is_s_instr || $is_b_instr || $is_load;
    $rd2_index[4:0] = $rs2;
    $rd2_en = $is_r_instr || $is_s_instr || $is_b_instr;
    // write - data depends on instruction
    // register index 0 may never be written to (always init value of zero)
-   $wr_en = ($is_r_instr || $is_i_instr || $is_u_instr || $is_j_instr) && $wr_index != 5'b0;
+   $wr_en = ($is_r_instr || $is_i_instr || $is_u_instr || $is_j_instr || $is_load) && $wr_index != 5'b0;
    $wr_index[4:0] = $rd;
-   $wr_data[31:0] = $result;
+   $wr_data[31:0] = $is_load ? $ld_data : $result;
    
    // implement alu - https://inst.eecs.berkeley.edu//~cs61c/fa17/img/riscvcard.pdf
    
@@ -160,6 +173,7 @@
                              {31'b0, $src1_value[31]} ) :
                    $is_sra ? $sra_rslt[31:0] :
                    $is_srai ? $srai_rslt[31:0] :
+                   ($is_load || $is_s_instr) ? $src1_value + $imm : // calculate load/store memory address
                    32'b0; // Default
    
    // implement conditional branch instructions
@@ -193,7 +207,7 @@
    *failed = *cyc_cnt > M4_MAX_CYC;
    
    m4+rf(32, 32, $reset, $wr_en, $wr_index, $wr_data, $rd1_en, $rd1_index, $src1_value, $rd2_en, $rd2_index, $src2_value)
-   //m4+dmem(32, 32, $reset, $addr[4:0], $wr_en, $wr_data[31:0], $rd_en, $rd_data)
+   m4+dmem(32, 32, $reset, $mem_addr, $mem_wr_en, $mem_wr_data, $mem_rd_en, $ld_data)
    m4+cpu_viz()
 \SV
    endmodule
