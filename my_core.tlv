@@ -13,7 +13,7 @@
    m4_makerchip_module   // (Expanded in Nav-TLV pane.)
    /* verilator lint_on WIDTH */
 \TLV
-   
+   // https://riscv.org/technical/specifications/ - unprivilleged
    $reset = *reset;
    
    // addr is byte offset (32 bit instruction: 4 bytes) - do all in 1 clock cycle
@@ -30,7 +30,7 @@
                  $instr[6:2] ==? 5'b001x0 ||
                  $instr[6:2] ==? 5'b11001;
    $is_u_instr = $instr[6:2] ==? 5'b0x101;
-   $is_s_instr = $instr[6:2] ==? 5'b0100x;
+   $is_s_instr = $instr[6:2] ==? 5'b0100x; // store (to memory) instructions
    $is_r_instr = $instr[6:2] ==? 5'b01011 ||
                  $instr[6:2] ==? 5'b011x0 ||
                  $instr[6:2] ==? 5'b10100;
@@ -87,7 +87,8 @@
    $is_sltu = $dec_bits ==? 11'b0_011_0110011;
    $is_sltiu = $dec_bits ==? 11'bx_011_0010011;
    
-   $is_auipc = $dec_bits ==? 11'bx_xxx_0110111;
+   $is_lui =   $dec_bits ==? 11'bx_xxx_0110111;
+   $is_auipc = $dec_bits ==? 11'bx_xxx_0010111;
    $is_jal =   $dec_bits ==? 11'bx_xxx_1101111;
    $is_jalr =  $dec_bits ==? 11'bx_000_1100111;
    
@@ -103,7 +104,8 @@
    $is_sra =   $dec_bits ==? 11'b1_101_0110011;
    $is_srai =  $dec_bits ==? 11'b1_101_0010011;
    
-   
+   // load-store operations simplified to load or store for now
+   $is_load =  $dec_bits ==? 11'bx_xxx_0000011; // load (to memory)
    
    // memory register read/write
    // read
@@ -117,9 +119,47 @@
    $wr_index[4:0] = $rd;
    $wr_data[31:0] = $result;
    
-   // implement alu
+   // implement alu - https://inst.eecs.berkeley.edu//~cs61c/fa17/img/riscvcard.pdf
+   
+   //SLTU, SLTI (set if less than, unsigned):
+   $sltu_rslt[31:0] = {31'b0, $src1_value < $src2_value}; // boolean: 0 or 1
+   $sltiu_rslt[31:0] = {31'b0, $src1_value < $imm}; // boolean: 0 or 1
+   
+   // SRA, SRAI (shift right, arithmetic):
+   // sign-extended src1 (shift). Probably could use ">>>", which does the same as below.
+   $sext_src1[63:0] = {{32{$src1_value[31]}}, $src1_value};
+   // 64-bit sign extended results, to be truncated
+   $sra_rslt[63:0] = $sext_src1 >> $src2_value[4:0]; // 32-bit max shift 
+   $srai_rslt[63:0] = $sext_src1 >> $imm[4:0]; // 32-bit max shift
+   
    $result[31:0] = $is_addi ? $src1_value + $imm :
                    $is_add ? $src1_value + $src2_value :
+                   $is_andi ? $src1_value & $imm :
+                   $is_ori ? $src1_value | $imm :
+                   $is_xori ? $src1_value ^ $imm :
+                   $is_addi ? $src1_value + $imm :
+                   $is_sll ? $src1_value << $src2_value[4:0] : // padded with zero
+                   $is_srl ? $src1_value >> $src2_value[4:0] :
+                   $is_slli ? $src1_value << $imm[5:0] :
+                   $is_srli ? $src1_value >> $imm[5:0] :
+                   $is_and ? $src1_value & $src2_value :
+                   $is_or ? $src1_value | $src2_value :
+                   $is_xor ? $src1_value ^ $src2_value :
+                   $is_sub ? $src1_value - $src2_value :
+                   $is_sltu ? $sltu_rslt :
+                   $is_sltiu ? $sltiu_rslt :
+                   $is_lui ? {$imm[31:12], 12'b0} :
+                   $is_auipc ? $pc + $imm :
+                   $is_jal ? $pc + 32'd4 :
+                   $is_jalr ? $pc + 32'd4 :
+                   $is_slt ? ( ($src1_value[31] == $src2_value[31]) ?
+                             $sltu_rslt :
+                             {31'b0, $src1_value[31]} ) : // if different sign, just look at sign for < comparison (1 is negative - "overflow")
+                   $is_slti ? ( ($src1_value[31] == $imm[31]) ?
+                             $sltiu_rslt :
+                             {31'b0, $src1_value[31]} ) :
+                   $is_sra ? $sra_rslt[31:0] :
+                   $is_srai ? $srai_rslt[31:0] :
                    32'b0; // Default
    
    // implement conditional branch instructions
