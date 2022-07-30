@@ -150,8 +150,8 @@
                    $is_sltiu ? $sltiu_rslt :
                    $is_lui ? {$imm[31:12], 12'b0} :
                    $is_auipc ? $pc + $imm :
-                   $is_jal ? $pc + 32'd4 :
-                   $is_jalr ? $pc + 32'd4 :
+                   $is_jal ? $pc + 32'd4 : // store normally next location in register (e.g. function return address)
+                   $is_jalr ? $pc + 32'd4 : // store normally next location in register (e.g. function return address)
                    $is_slt ? ( ($src1_value[31] == $src2_value[31]) ?
                              $sltu_rslt :
                              {31'b0, $src1_value[31]} ) : // if different sign, just look at sign for < comparison (1 is negative - "overflow")
@@ -170,9 +170,17 @@
                $is_bge ? ($src1_value >= $src2_value) ^ ($src1_value[31] != $src2_value[31]) :
                $is_bltu ? $src1_value < $src2_value :
                $is_bgeu ? $src1_value >= $src2_value : 
+               $is_jal ? 1 :
+               $is_jalr ? 1 :
                0;
-    // target pc is relative (imm) to current pc 
-   $br_tgt_pc[31:0] = $pc + $imm;
+    
+   //jal instruction
+   $jalr_tgt_pc[31:0] = $src1_value + $imm;
+   
+   // target pc is relative (imm) to current pc
+   // e.g. jal instruction
+   $br_tgt_pc[31:0] = $is_jalr ? $jalr_tgt_pc :
+                      $pc + $imm;
    
    // remove log clutter
    `BOGUS_USE($rs1 $rs1_valid $rs2 $rs2_valid $rd $rd_valid $funct3 $funct3_valid 
